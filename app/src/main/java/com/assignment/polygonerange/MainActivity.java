@@ -13,9 +13,11 @@ import android.util.Log;
 import android.widget.TextView;
 
 import com.assignment.polygonerange.api.LocalDataApi;
+import com.assignment.polygonerange.api.RetrofitClient;
 import com.assignment.polygonerange.datamapper.DataPopulate;
 import com.assignment.polygonerange.model.RPVertices;
 import com.assignment.polygonerange.model.RPVerticesRequest;
+import com.assignment.polygonerange.model.RpVerticesApi;
 import com.assignment.polygonerange.util.AppContext;
 import com.assignment.polygonerange.util.MyLocation;
 import com.assignment.polygonerange.util.Permissions;
@@ -27,6 +29,10 @@ import com.google.android.gms.maps.SupportMapFragment;
 import org.json.JSONException;
 
 import java.io.IOException;
+
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
 
 public class MainActivity extends AppCompatActivity implements OnMapReadyCallback, LocationListener {
     private static final float ZOOM_VALUE = 6.5F;
@@ -76,33 +82,78 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         mMap = googleMap;
 
         oneMinuteIntervalThreadCall();
-
-
-
-
     }
+
+    private void getVertices(double latitude, double longitude, int soc) {
+        Call<RpVerticesApi> call= RetrofitClient.getInstance().getMyApi().getVertices(latitude,longitude,soc);
+        call.enqueue(new Callback<RpVerticesApi>() {
+            @Override
+            public void onResponse(Call<RpVerticesApi> call, Response<RpVerticesApi> response) {
+                System.out.println("Response from api:"+response.body());
+                RpVerticesApi body=response.body();
+
+                makeDrawPolyGoneCall(makeRpVerticesObject(body,latitude,longitude,soc));
+
+            }
+
+            @Override
+            public void onFailure(Call<RpVerticesApi> call, Throwable t) {
+
+            }
+        });
+    }
+
+    private void makeDrawPolyGoneCall(RPVertices rpVertices) {
+        customPolygone.drawPolygon(mMap,rpVertices);
+        if(rpVertices.getSoc()>15) {
+//                tv.setText("SOC: " + rpVertices.getSoc());
+            tv.setTextColor(Color.GREEN);
+        }
+        else {
+
+            tv.setTextColor(Color.RED);
+        }
+        String str= null;
+        try {
+            str = location.getLocation(rpVertices.getNearest_lat(),rpVertices.getNearest_lon());
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        tv.setText("SOC: " + rpVertices.getSoc()+"\nAddress: "+str);
+    }
+
+    private RPVertices makeRpVerticesObject(RpVerticesApi api,double lat,double lon,int soc) {
+        RPVertices vertices=new RPVertices();
+        vertices.setRp_vertices(api.getVertices());
+        vertices.setLatitude(lat);
+        vertices.setLongitude(lon);
+        if(api.getNearestChargingStation()!=null) {
+            vertices.setNearest_lat(api.getNearestChargingStation().get(0).get(0));
+            vertices.setNearest_lon(api.getNearestChargingStation().get(0).get(1));
+        }
+        vertices.setSoc(soc);
+        return vertices;
+    }
+
 
     private void makePolyGoneCall() {
         RPVerticesRequest[] req=dummy_data.populateRPVerticesArray();
-        try {
-            int random_index= (int) ((Math.random()*10)% ARRAY_SIZE);
-            customPolygone.removePolyline();
-            RPVertices rpVertices=LocalDataApi.GetRPVertices(req[random_index].getLatitude(),req[random_index].getLongitude(),req[random_index].getSoc());
-            customPolygone.drawPolygon(mMap,rpVertices);
-            if(rpVertices.getSoc()>15) {
-//                tv.setText("SOC: " + rpVertices.getSoc());
-                tv.setTextColor(Color.GREEN);
-            }
-            else {
+        int random_index= (int) ((Math.random()*10)% ARRAY_SIZE);
+        customPolygone.removePolyline();
+        getVertices(req[random_index].getLatitude(),req[random_index].getLongitude(),req[random_index].getSoc());
+//            RPVertices rpVertices=LocalDataApi.GetRPVertices(req[random_index].getLatitude(),req[random_index].getLongitude(),req[random_index].getSoc());
+//            customPolygone.drawPolygon(mMap,rpVertices);
+//            if(rpVertices.getSoc()>15) {
+////                tv.setText("SOC: " + rpVertices.getSoc());
+//                tv.setTextColor(Color.GREEN);
+//            }
+//            else {
+//                tv.setTextColor(Color.RED);
+//            }
+//            String str=location.getLocation(rpVertices.getNearest_lat(),rpVertices.getNearest_lon());
+//            tv.setText("SOC: " + rpVertices.getSoc()+"\nAddress: "+str);
 
-                tv.setTextColor(Color.RED);
-            }
-            String str=location.getLocation(rpVertices.getNearest_lat(),rpVertices.getNearest_lon());
-            tv.setText("SOC: " + rpVertices.getSoc()+"\nAddress: "+str);
 
-        } catch (JSONException | IOException e) {
-            e.printStackTrace();
-        }
     }
 
     private void oneMinuteIntervalThreadCall() {
@@ -114,6 +165,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             int i=0;
 
             public void run() {
+
                     makePolyGoneCall();
                     handler.postDelayed(this, delay);
 

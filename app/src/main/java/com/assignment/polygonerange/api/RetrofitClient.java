@@ -1,6 +1,6 @@
 package com.assignment.polygonerange.api;
 
-import com.google.android.gms.common.api.Api;
+
 
 import retrofit2.Retrofit;
 import retrofit2.converter.gson.GsonConverterFactory;
@@ -8,13 +8,13 @@ import retrofit2.converter.gson.GsonConverterFactory;
 public class RetrofitClient {
 
     private static RetrofitClient instance = null;
-    private Api myApi;
+    private MyApi myApi;
 
     private RetrofitClient() {
-        Retrofit retrofit = new Retrofit.Builder().baseUrl("")
+        Retrofit retrofit = new Retrofit.Builder().baseUrl(MyApi.BASE_URL)
                 .addConverterFactory(GsonConverterFactory.create())
                 .build();
-        myApi = retrofit.create(Api.class);
+        myApi = retrofit.create(MyApi.class);
     }
 
     public static synchronized RetrofitClient getInstance() {
@@ -24,7 +24,7 @@ public class RetrofitClient {
         return instance;
     }
 
-    public Api getMyApi() {
+    public MyApi getMyApi() {
         return myApi;
     }
 }
